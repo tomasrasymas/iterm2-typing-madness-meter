@@ -14,12 +14,11 @@ from typing import Callable, Protocol
 from .config import Config
 from .game import Game, GameConfig, GameEvent, KeyClass
 from .render import DIM, Line, fg, seg
-from .tiers import color_at, tier_index, tier_position, tint_amount
+from .tiers import color_at, tier_position, tier_wpm_mins
 
 FLASH_RGB = (255, 40, 70)
 LIVE_TEXT_INTERVAL_MS = 500
 LIVE_TEXT_TTL_MS = 4000
-COOL_START_MS = 1000  # pause this long and the colors start cooling down
 WARM_UP_MS = 150  # time constant for heating up while typing
 GLOW_OFF = 0.04  # below this glow, tab color and tint are off
 
@@ -167,19 +166,21 @@ class Meter:
         }
 
     def speed_colors(self, wpm: int, heat: float, idle_ms: float, t: float) -> None:
-        """Tab color and background tint follow WPM. They warm up quickly while
-        you type and cool down smoothly when you slow down or stop: the color
-        slides back through the tiers (red, orange, yellow, green) while it
-        fades out over about cfg.cooldownMs."""
+        """Tab color and background tint mirror the meter's WPM color.
+
+        The color is the WPM's spot on the tier scale (green, yellow, orange,
+        red, blended in between) and the strength is WPM relative to the top
+        tier. WPM is a 10-second rolling average, so after you stop it falls
+        to zero over about 10 seconds, and the colors cool down with it: red,
+        orange, yellow, green, fading out. Rising is quick; on the way down,
+        cfg.cooldownMs adds easing so the fade has no visible steps."""
         dt = t - self._colors_at if self._colors_at else 0.0
         self._colors_at = t
-        cool_ms = max(1.0, float(self.cfg.cooldownMs)) / 4  # ~98% faded after cooldownMs
-        if idle_ms > COOL_START_MS or tier_index(wpm) == 0:
-            target_glow, target_pos = 0.0, 1.0
-        else:
-            target_glow, target_pos = tint_amount(wpm, heat), tier_position(wpm)
-        self._glow = approach(self._glow, target_glow, dt, WARM_UP_MS, cool_ms)
-        self._position = approach(self._position, target_pos, dt, WARM_UP_MS, cool_ms)
+        fall_ms = max(1.0, float(self.cfg.cooldownMs)) / 4
+        target_glow = min(1.0, wpm / tier_wpm_mins()[-1])
+        target_pos = tier_position(wpm)
+        self._glow = approach(self._glow, target_glow, dt, WARM_UP_MS, fall_ms)
+        self._position = approach(self._position, target_pos, dt, WARM_UP_MS, fall_ms)
 
         on = self._glow >= GLOW_OFF
         rgb = color_at(round(self._position * 20) / 20) if on else None

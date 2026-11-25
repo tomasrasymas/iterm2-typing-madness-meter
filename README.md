@@ -3,7 +3,7 @@
 An iTerm2 add-on that measures how mad your typing gets and turns it into a game. It's the iTerm2 version of [herdr-typing-madness-meter](https://github.com/tomasrasymas/herdr-typing-madness-meter): same game, same scoring, built on iTerm2's Python API.
 
 - **Typing Madness Meter:** a small pane under the session you type in shows live WPM, combo, multiplier, accuracy, XP and level. Sparks fly after the text, and the meter shakes harder the faster you type.
-- **Speed colors:** the tab of the session you're typing in turns green, then yellow, orange and red as your WPM climbs, and that session's background warms up with your speed. When you slow down or stop, it cools back down through the same colors and fades out.
+- **Speed colors:** the tab of the session you're typing in turns green, then yellow, orange and red as your WPM climbs, and that session's background warms up with your speed. The color always matches the meter's WPM number. When you slow down or stop, your WPM falls over about 10 seconds and the colors cool down with it: red, orange, yellow, green, then off.
 - **Milestones:** every 25-key combo, level-up, new WPM record and achievement flashes the background, shows a shaking badge (`COMBO 150!`) and gives the window a little shake. Level-ups, records and achievements also post a notification.
 - **Status bar:** an optional status bar component shows `⌨ 87 wpm · 120 combo · LV 7`. Click it for your stats.
 - **Stats:** levels, ranks, achievements, daily totals and a streak, kept between sessions.
@@ -126,17 +126,17 @@ All settings are optional. Create `~/.config/typing-madness-meter/config.json`. 
   "tierColors": ["#5fd787", "#ffd75f", "#ff8700", "#ff3030"],
   "tabColor": true,
   "tint": true,
-  "cooldownMs": 4000
+  "cooldownMs": 2000
 }
 ```
 
 | Key | Default | Meaning |
 |---|---|---|
 | `tierWpm` | `[25, 45, 65, 85]` | Minimum WPM for each of the four speed tiers. Must be four increasing numbers. Lower them to see colors sooner, raise them to make red harder to reach. |
-| `tierColors` | green, yellow, orange, red | Hex colors (`#rrggbb`) for those four tiers. Used for the tab color, the background tint and the meter's WPM number. Below the first tier, nothing is colored. |
+| `tierColors` | green, yellow, orange, red | Hex colors (`#rrggbb`) for those four tiers. Used for the tab color, the background tint and the meter's WPM number, blended smoothly between tiers. Below the first tier, the WPM number is gray and the tint is a faint green that fades out. |
 | `tabColor` | `true` | Color the tab of the session you're typing in. |
 | `tint` | `true` | Tint the typed session's background toward the tier color. It gets stronger the faster you type. |
-| `cooldownMs` | `4000` | How long the colors take to cool down after you stop typing. They start cooling after a 1-second pause, slide back through the tier colors and fade out. The warm-up while typing is always quick. |
+| `cooldownMs` | `2000` | Extra easing on the way down. The colors follow your WPM, which falls to zero over about 10 seconds after you stop, so the cooldown always takes about that long. Raise this to make the fade softer and a little slower, lower it to track the WPM more tightly. The warm-up while typing is always quick. |
 
 ### Score
 

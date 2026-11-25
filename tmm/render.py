@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .game import Live
-from .tiers import tier_color, tier_index
+from .tiers import color_at, tier_index, tier_position
 
 Segment = tuple[str, str]  # (text, SGR parameters such as "1;38;5;196"; "" = default style)
 Line = list[Segment]
@@ -37,9 +37,13 @@ class HudView:
 
 
 def wpm_style(wpm: float, bold: bool = False) -> str:
-    """SGR foreground for a WPM: gray below the first tier, else the tier's 24-bit color."""
-    rgb = tier_color(tier_index(wpm)).rgb
-    color = f"38;2;{rgb[0]};{rgb[1]};{rgb[2]}" if rgb else "38;5;250"
+    """SGR foreground for a WPM: gray below the first tier, else its color on
+    the tier scale, blended between tiers (the same color the terminal gets)."""
+    if tier_index(wpm) == 0:
+        color = "38;5;250"
+    else:
+        r, g, b = color_at(round(tier_position(wpm) * 20) / 20)
+        color = f"38;2;{r};{g};{b}"
     return f"1;{color}" if bold else color
 
 

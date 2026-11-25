@@ -76,51 +76,63 @@ class MeterTest(unittest.TestCase):
 
     def test_speed_colors_warm_up_fast(self):
         meter, fx, _ = make()
-        for i in range(8):  # 0.7s of fast typing (120 WPM, top tier)
-            meter.speed_colors(120, 0.8, 50, T0 + i * 100)
+        for i in range(8):  # 0.7s at 120 WPM (top tier)
+            meter.speed_colors(120, 0, 50, T0 + i * 100)
         tab, tint = fx.calls[-2][1], fx.calls[-1]
         self.assertTrue(tab[0] == 255 and tab[1] < 60, f"red within 0.7s, got {tab}")
         self.assertEqual(tint[1], tab)
         self.assertGreater(tint[2], 0.9)
 
-    def test_speed_colors_cool_down_smoothly(self):
+    def cooldown_trace(self, cfg=None, typing_s=15):
+        """Type at ~120 WPM, stop, and record (seconds idle, wpm, tab, tint) every 0.3s."""
+        meter, fx, _ = make(cfg)
+        t = T0
+        for i in range(typing_s * 10):
+            t += 100
+            meter.key("char", t, "s1")
+            if i % 3 == 0:
+                live = meter.game.live(t)
+                meter.speed_colors(live.wpm, live.heat, live.idle_ms, t)
+        trace = []
+        for i in range(1, 50):
+            t += 300
+            live = meter.game.live(t)
+            meter.speed_colors(live.wpm, live.heat, live.idle_ms, t)
+            trace.append((i * 0.3, live.wpm, fx.calls[-2][1], fx.calls[-1]))
+        return trace
+
+    def test_speed_colors_cool_down_with_wpm(self):
+        trace = self.cooldown_trace()
+        amounts = [tint[2] for _, _, _, tint in trace]
+        self.assertEqual(amounts, sorted(amounts, reverse=True))  # fades, never jumps back up
+        at = lambda secs: next(row for row in trace if row[0] >= secs)  # noqa: E731
+        self.assertEqual(at(2)[2], (255, 48, 48))  # still red 2s after stopping
+        self.assertGreater(at(6)[3][2], 0.4)  # still clearly glowing at 6s
+        tabs = [tab for _, _, tab, _ in trace if tab]
+        greens = [rgb for rgb in tabs if rgb[1] > rgb[0]]
+        oranges = [rgb for rgb in tabs if rgb[0] == 255 and 80 < rgb[1] < 170]
+        self.assertTrue(oranges and greens, "cools through orange and green on the way out")
+        self.assertIsNone(trace[-1][2])  # off in the end
+        self.assertIsNone(trace[-1][3][1])
+        last_on = max(i for i, row in enumerate(trace) if row[3][1] is not None)
+        self.assertLess(amounts[last_on], 0.1)  # never snaps from strong to off
+
+    def test_colors_match_the_meter_wpm_color(self):
+        from tmm.render import wpm_style
+
         meter, fx, _ = make()
         t = T0
-        for _ in range(10):
+        for i in range(40):  # settle at a steady 55 WPM
             t += 100
-            meter.speed_colors(120, 0.8, 50, t)
-        tints, tabs = [], []
-        for _ in range(50):  # stop typing: 5s of frames, idle the whole time
-            t += 100
-            meter.speed_colors(120, 0, 2000, t)
-            tabs.append(fx.calls[-2][1])
-            tints.append(fx.calls[-1])
-        amounts = [c[2] for c in tints]
-        self.assertEqual(amounts, sorted(amounts, reverse=True))  # fades, never jumps back up
-        self.assertGreater(amounts[5], 0.4)  # still glowing half a second in
-        self.assertIsNone(tints[-1][1])  # off by the end
-        greens = [rgb for rgb in tabs if rgb and rgb[1] > rgb[0]]
-        self.assertTrue(greens, "cools through green on the way out")
-        self.assertIsNone(tabs[-1])
-        # Never snaps from strong to off: the last visible step is faint.
-        last_on = max(i for i, c in enumerate(tints) if c[1] is not None)
-        self.assertLess(amounts[last_on], 0.1)
+            meter.speed_colors(55, 0, 50, t)
+        r, g, b = fx.calls[-2][1]
+        self.assertEqual(wpm_style(55), f"38;2;{r};{g};{b}")
 
-    def test_cooldown_is_configurable(self):
-        def frames_until_off(cooldown):
-            meter, fx, _ = make(Config(cooldownMs=cooldown))
-            t = T0
-            for _ in range(10):
-                t += 100
-                meter.speed_colors(120, 0.8, 50, t)
-            for n in range(1, 200):
-                t += 100
-                meter.speed_colors(120, 0, 2000, t)
-                if fx.calls[-1][1] is None:
-                    return n
-            return 999
-
-        self.assertLess(frames_until_off(1000), frames_until_off(4000))
+    def test_cooldown_easing_is_configurable(self):
+        fast = self.cooldown_trace(Config(cooldownMs=200))
+        slow = self.cooldown_trace(Config(cooldownMs=8000))
+        off = lambda trace: next(secs for secs, _, tab, _ in trace if tab is None)  # noqa: E731
+        self.assertLess(off(fast), off(slow))
 
     def test_tab_color_and_tint_can_be_disabled(self):
         meter, fx, _ = make(Config(tabColor=False, tint=False))
