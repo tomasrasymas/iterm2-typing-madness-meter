@@ -28,7 +28,13 @@ sh scripts/install.sh
 
 `install.sh` writes a small launcher into `~/Library/Application Support/iTerm2/Scripts/AutoLaunch/`, so iTerm2 starts the meter service on every launch. The launcher runs the code from your clone, so `git pull` updates it (restart the script afterwards in Scripts › Manage).
 
-Start it right away without restarting iTerm2: **Scripts › AutoLaunch › typing_madness_meter.py**.
+`install.sh` also starts the service right away. If it didn't (for example, the Python API is off), start it from **Scripts › AutoLaunch › typing_madness_meter.py**.
+
+Then turn the meter on. Bind a key (below), or run this from any iTerm2 session:
+
+```sh
+osascript -e 'tell application "iTerm2" to invoke API expression "tmm_toggle()"'
+```
 
 ### Keyboard shortcuts (recommended)
 

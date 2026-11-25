@@ -27,10 +27,21 @@ run()
 PY
 
 echo "installed $launcher"
+
+# Start it now instead of waiting for the next iTerm2 launch.
+if pgrep -f "AutoLaunch/typing_madness_meter.py" >/dev/null 2>&1; then
+  echo "already running (restart it in Scripts › Manage to pick up changes)"
+elif osascript -e 'tell application "iTerm2" to launch API script named "AutoLaunch/typing_madness_meter.py"' >/dev/null 2>&1; then
+  echo "started"
+else
+  echo "could not start it: use Scripts › AutoLaunch › typing_madness_meter.py"
+fi
+
 echo
 echo "Next:"
-echo "  1. iTerm2 › Settings › General › Magic: enable the Python API."
-echo "  2. Start it now with Scripts › AutoLaunch › typing_madness_meter.py"
-echo "     (iTerm2 offers to install its Python runtime the first time)."
-echo "  3. Bind tmm_toggle() to a key: Settings › Keys › Key Bindings › + ›"
+echo "  1. If nothing happens: iTerm2 › Settings › General › Magic › enable the Python API,"
+echo "     and accept iTerm2's offer to install its Python runtime."
+echo "  2. Turn the meter on from any iTerm2 session:"
+echo "       osascript -e 'tell application \"iTerm2\" to invoke API expression \"tmm_toggle()\"'"
+echo "  3. Better: bind tmm_toggle() to a key: Settings › Keys › Key Bindings › + ›"
 echo "     Action: Invoke Script Function, Function: tmm_toggle()"
