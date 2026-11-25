@@ -70,10 +70,11 @@ async def run(path: str, role: str) -> None:
 
     def on_key() -> None:
         data = os.read(sys.stdin.fileno(), 64)
-        if b"q" in data or b"\x03" in data or not data:
+        reason = "q" if b"q" in data else "ctrl-c" if b"\x03" in data else "end of input" if not data else None
+        if reason:
             w = state["writer"]
             if w is not None:
-                w.write(b'{"type":"quit"}\n')
+                w.write((json.dumps({"type": "quit", "reason": reason}) + "\n").encode())
             quit_event.set()
 
     loop.add_reader(sys.stdin.fileno(), on_key)

@@ -172,6 +172,11 @@ Changing the scoring rules doesn't recalculate XP you've already earned.
 - **The meter pane** is an ordinary split running `tmm/viewer.py`, which draws what the service sends it over a unix socket in `~/.local/state/typing-madness-meter/`. The service tags its panes with `user.tmmRole`, so a restarted service finds and reuses them.
 - **Notifications** come from the meter pane printing an OSC 9 escape sequence, so iTerm2 posts them under its own name. They follow your iTerm2 notification settings.
 
+## Troubleshooting
+
+- **Nothing happens on `tmm_toggle()`:** check the service is running (Scripts › Manage should list `typing_madness_meter.py`). If it isn't, start it from Scripts › AutoLaunch.
+- **The meter turned itself off:** `~/.local/state/typing-madness-meter/meter.log` records when the meter turns on and off, and why: `q` pressed in the meter pane, the meter pane closed, the session above it closed, or a toggle. Errors also go there and to Scripts › Manage › Console.
+
 ## Privacy
 
 - The service sees keystrokes only through iTerm2's API. Each key is reduced to one of `char`, `backspace`, `enter` or `other` in `tmm/classify.py`, and the characters are dropped there. Nothing else ever sees them.

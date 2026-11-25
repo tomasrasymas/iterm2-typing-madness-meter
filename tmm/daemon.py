@@ -184,7 +184,7 @@ class Daemon:
 
     async def toggle(self) -> None:
         if self.enabled:
-            await self.disable()
+            await self.disable("toggled off")
         else:
             await self.enable()
 
@@ -195,9 +195,10 @@ class Daemon:
         self.effects.start()
         if target is not None:
             await self.open_pane(target)
-        log("meter on")
+        target_desc = target.session_id[:8] if target else "first session you type in"
+        log(f"meter on (pane under {target_desc})")
 
-    async def disable(self) -> None:
+    async def disable(self, reason: str) -> None:
         self.enabled = False
         self.save_state()
         self._busy = True
@@ -208,7 +209,7 @@ class Daemon:
         await self.effects.restore_all()
         await self.set_live_var(None, "")
         self.save_stats()
-        log("meter off")
+        log(f"meter off: {reason}")
 
     async def open_pane(self, target) -> None:
         if self._busy:
@@ -303,10 +304,14 @@ class Daemon:
         if not pane_alive and not anchor_alive:
             self.pane.session_id = self.pane.anchor_id = None
             target = self.typing_target()
+            log("the meter's tab closed; reopening it under the active session")
             if target is not None:
                 await self.open_pane(target)
             return
-        await self.disable()
+        if not pane_alive:
+            await self.disable("the meter pane was closed")
+        else:
+            await self.disable("the session above the meter was closed")
 
     # ---------------------------------------------------------------- socket
 
@@ -316,7 +321,7 @@ class Daemon:
             await self.on_hud_hello(client)
         elif kind == "quit" and client.role == "hud":
             if self.enabled:
-                await self.disable()
+                await self.disable(f"{msg.get('reason', 'q')} pressed in the meter pane")
         elif kind == "quit" and client.role == "demo":
             await self.finish_demo(0)
         elif client.role == "typer" and self.demo:

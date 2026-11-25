@@ -13,13 +13,13 @@ import sys
 
 import iterm2
 
+from .effects import log
+
 ROLE_VAR = "user.tmmRole"
 ANCHOR_VAR = "user.tmmAnchor"
 ROOT = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
-def log(msg: str) -> None:
-    print(f"typing-madness-meter: {msg}", flush=True)
 
 
 def script_command(script: str, *args: str) -> str:

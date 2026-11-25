@@ -13,7 +13,9 @@ The pure helpers at the top are unit-tested; the Effects class needs iTerm2.
 from __future__ import annotations
 
 import asyncio
+import os
 import random
+import time
 from typing import Callable
 
 RGB = tuple[int, int, int]
@@ -21,6 +23,7 @@ RGB = tuple[int, int, int]
 TOUCHED_VAR = "user.tmmTouched"
 MAX_TINT = 0.28  # strongest background blend at full typing heat
 FLASH_BLEND = 0.55
+LOG_MAX_BYTES = 256 * 1024
 SYNC_INTERVAL = 0.05  # at most ~20 profile writes per second for tint and tab color
 
 BG_PROPS = ("background_color", "background_color_light", "background_color_dark")
@@ -61,7 +64,18 @@ def badge_offsets(steps: int = 12, amp: float = 12, rng: Callable[[], float] = r
 
 
 def log(msg: str) -> None:
+    """To iTerm2's script console and to meter.log in the state dir."""
     print(f"typing-madness-meter: {msg}", flush=True)
+    try:
+        from .config import state_dir
+
+        path = os.path.join(state_dir(), "meter.log")
+        if os.path.exists(path) and os.path.getsize(path) > LOG_MAX_BYTES:
+            os.replace(path, path + ".1")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except OSError:
+        pass
 
 
 class SessionLook:
