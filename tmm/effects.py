@@ -33,10 +33,10 @@ def blend_rgb(base: tuple[float, float, float], color: RGB, amount: float) -> RG
 
 
 def quantize_tint(rgb: RGB | None, amount: float) -> tuple[RGB, float] | None:
-    """Tint state in 0.1 steps; None means no tint."""
+    """Tint state in 0.05 steps (fine enough for a smooth fade); None means no tint."""
     if rgb is None:
         return None
-    q = round(min(1.0, max(0.0, amount)) * 10) / 10
+    q = round(min(1.0, max(0.0, amount)) * 20) / 20
     return (tuple(rgb), q) if q > 0 else None  # type: ignore[return-value]
 
 

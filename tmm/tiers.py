@@ -86,3 +86,25 @@ def tint_amount(wpm: float, heat: float, mins: list[float] | None = None) -> flo
     """How strong the background tint is: typing burst or sustained speed, whichever is higher."""
     mins = mins or _tier_wpm
     return min(1.0, max(heat, wpm / mins[-1]))
+
+
+def tier_position(wpm: float, mins: list[float] | None = None) -> float:
+    """Where a WPM sits on the color scale, as a float from 1 (first tier's
+    color) to 4 (top tier's color), interpolated between thresholds."""
+    mins = mins or _tier_wpm
+    if wpm <= mins[0]:
+        return 1.0
+    for i in range(1, len(mins)):
+        if wpm < mins[i]:
+            return i + (wpm - mins[i - 1]) / (mins[i] - mins[i - 1])
+    return float(len(mins))
+
+
+def color_at(position: float) -> RGB:
+    """Tier color at a fractional position (1..4), blended between neighbors."""
+    position = max(1.0, min(float(len(_colors) - 1), position))
+    lo = int(position)
+    hi = min(lo + 1, len(_colors) - 1)
+    f = position - lo
+    a, b = _colors[lo].rgb, _colors[hi].rgb
+    return tuple(round(x + (y - x) * f) for x, y in zip(a, b))  # type: ignore[return-value]

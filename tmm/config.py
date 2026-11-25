@@ -16,6 +16,7 @@ class Config:
     tierColors: list = field(default_factory=lambda: list(DEFAULT_TIER_COLORS))
     tabColor: bool = True  # color the typed session's tab by speed tier
     tint: bool = True  # tint the typed session's background as you type faster
+    cooldownMs: int = 4000  # how long the colors take to fade out after you stop typing
     # Score
     comboGapMs: int = 1200
     comboStep: int = 25

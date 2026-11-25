@@ -6,6 +6,7 @@ No iTerm2 imports here: effects are passed in, so this is unit-testable.
 
 from __future__ import annotations
 
+import math
 import random
 import time
 from typing import Callable, Protocol
@@ -13,12 +14,20 @@ from typing import Callable, Protocol
 from .config import Config
 from .game import Game, GameConfig, GameEvent, KeyClass
 from .render import DIM, Line, fg, seg
-from .tiers import tier_color, tier_for, tint_amount
+from .tiers import color_at, tier_index, tier_position, tint_amount
 
 FLASH_RGB = (255, 40, 70)
 LIVE_TEXT_INTERVAL_MS = 500
 LIVE_TEXT_TTL_MS = 4000
-COLOR_IDLE_MS = 3000  # tab color and tint clear after this long without keys
+COOL_START_MS = 1000  # pause this long and the colors start cooling down
+WARM_UP_MS = 150  # time constant for heating up while typing
+GLOW_OFF = 0.04  # below this glow, tab color and tint are off
+
+
+def approach(current: float, target: float, dt_ms: float, rise_ms: float, fall_ms: float) -> float:
+    """Exponential smoothing toward `target`, with separate rise and fall speeds."""
+    tau = rise_ms if target > current else fall_ms
+    return target + (current - target) * math.exp(-max(0.0, dt_ms) / max(1.0, tau))
 
 
 class EffectsLike(Protocol):
@@ -70,7 +79,9 @@ class Meter:
         self._notice: tuple[Line, float] | None = None
         self._burst = 0.0
         self._frame = 0
-        self._tier = 0
+        self._glow = 0.0  # 0..1 smoothed strength of the speed colors
+        self._position = 1.0  # smoothed position on the tier color scale (1..4)
+        self._colors_at = 0.0
         self._live_text_at = 0.0
         self.live_text = ""  # "87 wpm · 120 combo" while typing, else ""
 
@@ -134,7 +145,7 @@ class Meter:
         self._frame += 1
         live = self.game.live(t)
         if self._frame % 3 == 0:
-            self.speed_colors(live.wpm, live.heat, live.idle_ms)
+            self.speed_colors(live.wpm, live.heat, live.idle_ms, t)
         if live.idle_ms > LIVE_TEXT_TTL_MS:
             self.live_text = ""
 
@@ -155,16 +166,25 @@ class Meter:
             "frame": self._frame if amp > 0.05 else 0,
         }
 
-    def speed_colors(self, wpm: int, heat: float, idle_ms: float) -> None:
-        """Tab color and background tint follow WPM, and clear when typing stops."""
-        idle = idle_ms > COLOR_IDLE_MS
-        self._tier = 0 if idle else tier_for(wpm, self._tier)
-        rgb = tier_color(self._tier).rgb
-        self.effects.tab(rgb if self.cfg.tabColor else None)
-        if self.cfg.tint:
-            self.effects.tint(rgb, tint_amount(wpm, heat))
+    def speed_colors(self, wpm: int, heat: float, idle_ms: float, t: float) -> None:
+        """Tab color and background tint follow WPM. They warm up quickly while
+        you type and cool down smoothly when you slow down or stop: the color
+        slides back through the tiers (red, orange, yellow, green) while it
+        fades out over about cfg.cooldownMs."""
+        dt = t - self._colors_at if self._colors_at else 0.0
+        self._colors_at = t
+        cool_ms = max(1.0, float(self.cfg.cooldownMs)) / 4  # ~98% faded after cooldownMs
+        if idle_ms > COOL_START_MS or tier_index(wpm) == 0:
+            target_glow, target_pos = 0.0, 1.0
         else:
-            self.effects.tint(None, 0)
+            target_glow, target_pos = tint_amount(wpm, heat), tier_position(wpm)
+        self._glow = approach(self._glow, target_glow, dt, WARM_UP_MS, cool_ms)
+        self._position = approach(self._position, target_pos, dt, WARM_UP_MS, cool_ms)
+
+        on = self._glow >= GLOW_OFF
+        rgb = color_at(round(self._position * 20) / 20) if on else None
+        self.effects.tab(rgb if self.cfg.tabColor else None)
+        self.effects.tint(rgb if self.cfg.tint else None, self._glow)
 
     def status_text(self, t: float, on: bool) -> str:
         """Text for the status bar component."""

@@ -3,6 +3,8 @@ import unittest
 from tmm.render import wpm_style
 from tmm.tiers import (
     DEFAULT_TIER_COLORS,
+    color_at,
+    tier_position,
     DEFAULT_TIER_WPM,
     hex_to_rgb,
     set_tier_colors,
@@ -57,6 +59,15 @@ class TiersTest(unittest.TestCase):
             self.assertEqual(tier_wpm_mins(), [10, 20, 30, 40])
         finally:
             set_tier_wpm(DEFAULT_TIER_WPM)
+
+    def test_color_scale(self):
+        self.assertEqual(tier_position(10), 1.0)
+        self.assertEqual(tier_position(35), 1.5)  # halfway from 25 to 45
+        self.assertEqual(tier_position(200), 4.0)
+        self.assertEqual(color_at(1), (95, 215, 135))  # green
+        self.assertEqual(color_at(4), (255, 48, 48))  # red
+        self.assertEqual(color_at(3.5), (255, 92, 24))  # between orange and red
+        self.assertEqual(color_at(9), (255, 48, 48))  # clamped
 
 
 if __name__ == "__main__":
